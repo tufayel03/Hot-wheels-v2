@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ScrollControls, useScroll, Environment, Stars, Float, Image } from '@react-three/drei';
+import { ScrollControls, useScroll, Environment, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { OverlayUI } from './OverlayUI';
 
@@ -17,61 +17,6 @@ const curvePoints = [
 ];
 
 const curve = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 0.5);
-
-const products = [
-  { url: 'https://picsum.photos/seed/car1/600/400', t: 0.15, scale: [4, 2.66] as [number, number] },
-  { url: 'https://picsum.photos/seed/car2/600/400', t: 0.35, scale: [4, 2.66] as [number, number] },
-  { url: 'https://picsum.photos/seed/drop4/400/400', t: 0.55, scale: [3, 3] as [number, number] },
-  { url: 'https://picsum.photos/seed/auction/800/800', t: 0.75, scale: [3, 3] as [number, number] },
-  { url: 'https://picsum.photos/seed/series1/400/600', t: 0.9, scale: [2.66, 4] as [number, number] },
-];
-
-function TrackImages() {
-  const frames = useMemo(() => curve.computeFrenetFrames(800, false), []);
-
-  return (
-    <group>
-      {products.map((prod, i) => {
-        const t = prod.t;
-        const position = curve.getPointAt(t);
-        const frameIndex = Math.min(Math.floor(t * 800), 800);
-        const tangent = frames.tangents[frameIndex];
-        const normal = frames.normals[frameIndex]; // Side vector
-        const binormal = frames.binormals[frameIndex]; // Up vector
-        
-        // Alternate left and right side of the track
-        const sideMultiplier = i % 2 === 0 ? 1 : -1;
-        
-        // Position it to the side and slightly above the track
-        // Track width is 5 (-2.5 to 2.5), so 4 units puts it just outside the track
-        const sideOffset = normal.clone().multiplyScalar(4.5 * sideMultiplier);
-        const upOffset = binormal.clone().multiplyScalar(1.5); // 1.5 units up
-        
-        const imagePos = position.clone().add(sideOffset).add(upOffset);
-        
-        // Make the image face the camera (which travels along the tangent)
-        // We angle it slightly inwards towards the track
-        const lookDirection = tangent.clone().negate();
-        const inwardAngle = normal.clone().multiplyScalar(0.5 * sideMultiplier);
-        lookDirection.add(inwardAngle).normalize();
-        
-        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), lookDirection);
-        
-        return (
-          <Float key={i} speed={2} rotationIntensity={0.1} floatIntensity={0.5}>
-            <Image 
-              url={prod.url} 
-              position={imagePos} 
-              quaternion={quaternion} 
-              scale={prod.scale}
-              transparent
-            />
-          </Float>
-        );
-      })}
-    </group>
-  );
-}
 
 function Track() {
   const { trackGeo, stripeGeo } = useMemo(() => {
@@ -203,31 +148,19 @@ function SpeedLines() {
   );
 }
 
-function GlowingRings() {
-  const rings = useMemo(() => {
-    const items = [];
-    const numRings = 15;
-    for (let i = 1; i < numRings; i++) {
-      const t = i / numRings;
-      const position = curve.getPointAt(t);
-      const tangent = curve.getTangentAt(t);
-      
-      // Calculate orientation to face along the track
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-      
-      items.push({ position, quaternion });
+function MovingStars() {
+  const starsRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  
+  useFrame(() => {
+    if (starsRef.current) {
+      starsRef.current.position.copy(camera.position);
     }
-    return items;
-  }, []);
+  });
 
   return (
-    <group>
-      {rings.map((r, i) => (
-        <mesh key={i} position={r.position} quaternion={r.quaternion}>
-          <torusGeometry args={[10, 0.2, 16, 100]} />
-          <meshBasicMaterial color={i % 2 === 0 ? "#FF2A00" : "#FFD500"} />
-        </mesh>
-      ))}
+    <group ref={starsRef}>
+      <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
     </group>
   );
 }
@@ -245,12 +178,10 @@ export function TrackScene() {
         <pointLight position={[30, 15, -100]} intensity={2} color="#FF6A00" distance={50} />
         <pointLight position={[-50, 25, -250]} intensity={2} color="#FFD500" distance={50} />
 
-        <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
+        <MovingStars />
         
         <ScrollControls pages={8} damping={0.25}>
           <Track />
-          <TrackImages />
-          <GlowingRings />
           <CameraRig />
           <SpeedLines />
           <OverlayUI />
