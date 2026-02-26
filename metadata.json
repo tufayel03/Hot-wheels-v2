@@ -1,0 +1,5 @@
+{
+  "name": "Remix: Hot Wheels Track Experience",
+  "description": "A cinematic 3D racing track homepage inspired by Hot Wheels, featuring Three.js and React Three Fiber.",
+  "requestFramePermissions": []
+}
